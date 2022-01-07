@@ -9,21 +9,21 @@ class ResidualBlock(nn.Module):
     def __init__(self, in_channels, out_channels, stride=1):
         super(ResidualBlock, self).__init__()
         # when the number of out channels is increased : in bottleneck architecture, use zeropadding, in basic block, use projection shortcut(F(x)+W_s * x)
-        self.expansion=1 
+        ResidualBlock.expansion=1 
         
         self.conv_layers = nn.Sequential(
             nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=False),
             nn.BatchNorm2d(out_channels),
             nn.ReLU(),
-            nn.Conv2d(in_channels, out_channels*self.expansion, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.BatchNorm2d(out_channels*self.expansion)
+            nn.Conv2d(out_channels, out_channels*ResidualBlock.expansion, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.BatchNorm2d(out_channels*ResidualBlock.expansion)
         )
         # the case that the number of input channels is not equal with the number of output channels
         # in other cases, the result of self.shortcut is x
-        if stride != 1 or in_channels != out_channels * self.expansion:
+        if stride != 1 or in_channels != out_channels * ResidualBlock.expansion:
             self.shortcut=nn.Sequential(
-                nn.Conv2d(in_channels, out_channels*self.expansion, kernel_size=1, stride=stride, bias=False),
-                nn.BatchNorm2d(out_channels*self.expansion)
+                nn.Conv2d(in_channels, out_channels*ResidualBlock.expansion, kernel_size=1, stride=stride, bias=False),
+                nn.BatchNorm2d(out_channels*ResidualBlock.expansion)
             )
         else:
             self.shortcut = nn.Sequential()
@@ -38,23 +38,23 @@ class BottleNeck(nn.Module):
     in 50, 101, 152-layer resnet
     '''
     def __init__(self, in_channels, out_channels, stride=1):
-        self.expansoin = 4
+        BottleNeck.expansoin = 4 # Table 1: 128*4=512, 256*4=1024, 512*4=2048
         super(BottleNeck, self).__init__()
         self.conv_layers = nn.Sequential(
             nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=1, bias=False),
             nn.BatchNorm2d(out_channels),
             nn.ReLU(),
-            nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=False),
+            nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=False),
             nn.BatchNorm2d(out_channels),
-            nn.Conv2d(in_channels, out_channels*self.expansion, kernel_size=1, stride=1, bias=False),
-            nn.BatchNorm2d(out_channels*self.expansion)
+            nn.Conv2d(out_channels, out_channels*BottleNeck.expansoin, kernel_size=1, stride=1, bias=False),
+            nn.BatchNorm2d(out_channels*BottleNeck.expansoin)
         )
         # the case that the number of input channels is not equal with the number of output channels
         # in other cases, the result of self.shortcut is x
-        if stride != 1 or in_channels != out_channels * self.expansion:
+        if stride != 1 or in_channels != out_channels * BottleNeck.expansoin:
             self.shortcut=nn.Sequential(
-                nn.Conv2d(in_channels, out_channels*self.expansion, kernel_size=1, stride=stride, bias=False),
-                nn.BatchNorm2d(out_channels*self.expansion)
+                nn.Conv2d(in_channels, out_channels*BottleNeck.expansoin, kernel_size=1, stride=stride, bias=False),
+                nn.BatchNorm2d(out_channels*BottleNeck.expansoin)
             )
         else:
             self.shortcut = nn.Sequential()
@@ -67,37 +67,61 @@ class Resnet(nn.Module):
     '''
     num_layers : the number of layers of ResNet ( i.e. 18, 34, 50, 101, 152 )
     '''
-    def __init__(self, num_layers):
+    def __init__(self, num_layers, num_classes=2, init_weights=True):
         super(Resnet, self).__init__()
         if num_layers == 18:
             num_blocks = [2, 2, 2, 2]
+            block_class = ResidualBlock
         elif num_layers == 34:
-            num_blocks = [2, 2, 2, 2]
+            num_blocks = [3, 4, 6, 3]
+            block_class = ResidualBlock
         elif num_layers == 50:
-            num_blocks = [2, 2, 2, 2]
+            num_blocks = [3, 4, 6, 3]
+            block_class = BottleNeck
         elif num_layers == 101:
-            num_blocks = [2, 2, 2, 2]
+            num_blocks = [3, 4, 23, 3]
+            block_class = BottleNeck
         elif num_layers == 152:
-            num_blocks = [2, 2, 2, 2]
+            num_blocks = [3, 8, 36, 3]
+            block_class = BottleNeck
         else: 
             print(" It's not appropriate number of layers ") 
             sys.exit(0)
         
         self.in_channels = 64
-        self.conv1 = nn.Sequential(
+        self.conv1_n_maxpool = nn.Sequential(
             nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False), 
             nn.BatchNorm2d(64),
-            nn.ReLU())
-        self.conv2_x = nn.Sequential(
+            nn.ReLU(),
             nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-
         )
-        self.conv3_x
-        self.conv4_x
-        self.conv5_x
-        self.average_pool
-        self.fc_layer
-        self.softmax
+        self.conv2_x = self._make_layers(block_class, num_blocks[0], 1, 64)
+        self.conv3_x = self._make_layers(block_class, num_blocks[1], 2, 128)
+        self.conv4_x = self._make_layers(block_class, num_blocks[2], 2, 256)
+        self.conv5_x = self._make_layers(block_class, num_blocks[3], 2, 512)
+        self.average_pool = nn.AdaptiveAvgPool2d((1,1)) # N, C, 1, 1
+        self.fc_layer = nn.Linear(512*block_class.expansion, num_classes)
+        self.softmax = nn.Softmax()
     
-    def _make_layers(self, num_blocks):
+    def _make_layers(self, block_class, num_blocks, stride, out_channels):
+        strides = [stride] + [1] * (num_blocks - 1)
+        layers = []
+        for stride in strides:
+            layers + [block_class(self.in_channels, out_channels, stride)]
+            self.in_channels = out_channels * block_class.expansion
+        return nn.Sequential(*layers)
+    def forward(self, x):
+        output = self.conv1_n_maxpool(x)
+        output = self.conv2_x(output)
+        output = self.conv3_x(output)
+        output = self.conv4_x(output)
+        output = self.conv5_x(output)
+        output = self.average_pool(output)
         
+        output = output.view(output.size(0), -1)
+        output = self.fc_layer(output)
+        output = self.softmax(output)
+        return output
+
+if __name__ == "__main__":
+    resnet = Resnet(18)
