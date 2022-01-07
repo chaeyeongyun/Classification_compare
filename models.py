@@ -27,10 +27,12 @@ class ResidualBlock(nn.Module):
             )
         else:
             self.shortcut = nn.Sequential()
-    
+        self.relu = nn.ReLU()
+
     def forward(self, x):
         x = self.conv_layers(x) + self.shortcut(x)
-        return nn.ReLU(x)
+        x = self.relu(x)
+        return x
 
         
 class BottleNeck(nn.Module):
@@ -39,6 +41,7 @@ class BottleNeck(nn.Module):
     '''
     def __init__(self, in_channels, out_channels, stride=1):
         super(BottleNeck, self).__init__()
+        # when the number of out channels is increased : in bottleneck architecture, use zeropadding, in basic block, use projection shortcut(F(x)+W_s * x)
         BottleNeck.expansion = 4 # Table 1: 128*4=512, 256*4=1024, 512*4=2048
         self.conv_layers = nn.Sequential(
             nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=1, bias=False),
@@ -95,19 +98,18 @@ class Resnet(nn.Module):
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         )
-        self.conv2_x = self._make_layers(block_class, num_blocks[0], 1, 64)
-        self.conv3_x = self._make_layers(block_class, num_blocks[1], 2, 128)
+        self.conv2_x = self._make_layers(block_class, num_blocks[0], 1, 64) # N, 64, 56, 56
+        self.conv3_x = self._make_layers(block_class, num_blocks[1], 2, 128) # N, 128, 28, 28
         self.conv4_x = self._make_layers(block_class, num_blocks[2], 2, 256)
         self.conv5_x = self._make_layers(block_class, num_blocks[3], 2, 512)
         self.average_pool = nn.AdaptiveAvgPool2d((1,1)) # N, C, 1, 1
         self.fc_layer = nn.Linear(512*block_class.expansion, num_classes)
-        self.softmax = nn.Softmax()
     
     def _make_layers(self, block_class, num_blocks, stride, out_channels):
         strides = [stride] + [1] * (num_blocks - 1)
         layers = []
         for stride in strides:
-            layers + [block_class(self.in_channels, out_channels, stride)]
+            layers = layers + [block_class(self.in_channels, out_channels, stride)]
             self.in_channels = out_channels * block_class.expansion
         return nn.Sequential(*layers)
     def forward(self, x):
@@ -117,10 +119,9 @@ class Resnet(nn.Module):
         output = self.conv4_x(output)
         output = self.conv5_x(output)
         output = self.average_pool(output)
-        
+        print(output.size())
         output = output.view(output.size(0), -1)
         output = self.fc_layer(output)
-        output = self.softmax(output)
         return output
     
     def _initialize_weights(self):
@@ -137,9 +138,11 @@ class Resnet(nn.Module):
                 nn.init.constant_(m.bias, 0)
 
 
-if __name__ == "__main__":
-    resnet = Resnet(18)
-    resnet = Resnet(34)
-    resnet = Resnet(50)
-    resnet = Resnet(101)
-    resnet = Resnet(152)
+# if __name__ == "__main__":
+#     # resnet = Resnet(18)
+#     # # resnet = Resnet(34)
+#     # # resnet = Resnet(50)
+#     # # resnet = Resnet(101)
+#     # # resnet = Resnet(152)
+#     # x = torch.zeros((1, 3, 224, 224))
+#     # resnet(x)
