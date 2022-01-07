@@ -38,23 +38,23 @@ class BottleNeck(nn.Module):
     in 50, 101, 152-layer resnet
     '''
     def __init__(self, in_channels, out_channels, stride=1):
-        BottleNeck.expansoin = 4 # Table 1: 128*4=512, 256*4=1024, 512*4=2048
         super(BottleNeck, self).__init__()
+        BottleNeck.expansion = 4 # Table 1: 128*4=512, 256*4=1024, 512*4=2048
         self.conv_layers = nn.Sequential(
             nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=1, bias=False),
             nn.BatchNorm2d(out_channels),
             nn.ReLU(),
             nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=False),
             nn.BatchNorm2d(out_channels),
-            nn.Conv2d(out_channels, out_channels*BottleNeck.expansoin, kernel_size=1, stride=1, bias=False),
-            nn.BatchNorm2d(out_channels*BottleNeck.expansoin)
+            nn.Conv2d(out_channels, out_channels*BottleNeck.expansion, kernel_size=1, stride=1, bias=False),
+            nn.BatchNorm2d(out_channels*BottleNeck.expansion)
         )
         # the case that the number of input channels is not equal with the number of output channels
         # in other cases, the result of self.shortcut is x
-        if stride != 1 or in_channels != out_channels * BottleNeck.expansoin:
+        if stride != 1 or in_channels != out_channels * BottleNeck.expansion:
             self.shortcut=nn.Sequential(
-                nn.Conv2d(in_channels, out_channels*BottleNeck.expansoin, kernel_size=1, stride=stride, bias=False),
-                nn.BatchNorm2d(out_channels*BottleNeck.expansoin)
+                nn.Conv2d(in_channels, out_channels*BottleNeck.expansion, kernel_size=1, stride=stride, bias=False),
+                nn.BatchNorm2d(out_channels*BottleNeck.expansion)
             )
         else:
             self.shortcut = nn.Sequential()
@@ -122,6 +122,24 @@ class Resnet(nn.Module):
         output = self.fc_layer(output)
         output = self.softmax(output)
         return output
+    
+    def _initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d): 
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu') # He initialization
+                if m.bias is not None: 
+                    nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.Linear):
+                nn.init.normal_(m.weight, 0, 0.01) # Fills the given 2-dimensional matrix with values drawn from a normal distribution parameterized by mean and std.
+                nn.init.constant_(m.bias, 0)
+
 
 if __name__ == "__main__":
     resnet = Resnet(18)
+    resnet = Resnet(34)
+    resnet = Resnet(50)
+    resnet = Resnet(101)
+    resnet = Resnet(152)
