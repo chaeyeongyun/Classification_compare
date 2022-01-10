@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import sys
+from torchsummary import summary as summary_
 
 class ResidualBlock(nn.Module):
     '''
@@ -61,10 +62,12 @@ class BottleNeck(nn.Module):
             )
         else:
             self.shortcut = nn.Sequential()
-        
-        def forward(self, x):
-            x = self.conv_layers(x) + self.shortcut(x)
-            return nn.ReLU(x)
+        self.relu = nn.ReLU()
+    
+    def forward(self, x):
+        x = self.conv_layers(x) + self.shortcut(x)
+        x = self.relu(x)
+        return x
 
 class Resnet(nn.Module):
     '''
@@ -112,6 +115,7 @@ class Resnet(nn.Module):
             layers = layers + [block_class(self.in_channels, out_channels, stride)]
             self.in_channels = out_channels * block_class.expansion
         return nn.Sequential(*layers)
+    
     def forward(self, x):
         output = self.conv1_n_maxpool(x)
         output = self.conv2_x(output)
@@ -119,7 +123,6 @@ class Resnet(nn.Module):
         output = self.conv4_x(output)
         output = self.conv5_x(output)
         output = self.average_pool(output)
-        print(output.size())
         output = output.view(output.size(0), -1)
         output = self.fc_layer(output)
         return output
@@ -138,11 +141,14 @@ class Resnet(nn.Module):
                 nn.init.constant_(m.bias, 0)
 
 
-# if __name__ == "__main__":
-#     # resnet = Resnet(18)
+if __name__ == "__main__":
+    resnet = Resnet(50)
 #     # # resnet = Resnet(34)
 #     # # resnet = Resnet(50)
 #     # # resnet = Resnet(101)
 #     # # resnet = Resnet(152)
-#     # x = torch.zeros((1, 3, 224, 224))
-#     # resnet(x)
+    x = torch.zeros((1, 3, 224, 224))
+    
+    
+    pred = resnet(x)
+    print(pred)
