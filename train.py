@@ -28,7 +28,7 @@ def evaluate(model, testloader, device):
         # pred = pred.type(torch.FloatTensor)
         # y_batch = y_batch.type(torch.FloatTensor)
         loss = nn.CrossEntropyLoss()
-        loss_output=(loss(pred, y_batch))
+        loss_output=loss(pred, y_batch).item()
         test_loss += loss_output
         # acc = accuracy(pred, y_batch)
         prediction = torch.argmax(pred, dim=1)
@@ -52,7 +52,7 @@ def cpu_evaluate(cpu_model, testloader, device=torch.device('cpu')):
         # pred = pred.type(torch.FloatTensor)
         # y_batch = y_batch.type(torch.FloatTensor)
         loss = nn.CrossEntropyLoss()
-        loss_output=(loss(pred, y_batch))
+        loss_output=loss(pred, y_batch).item()
         test_loss += loss_output
         # acc = accuracy(pred, y_batch)
         prediction = torch.argmax(pred, dim=1)
@@ -60,7 +60,7 @@ def cpu_evaluate(cpu_model, testloader, device=torch.device('cpu')):
         test_acc += acc
     test_acc = test_acc/ len(testloader)
     test_loss = test_loss / len(testloader)
-
+    torch.cuda.empty_cache()
     return test_loss, test_acc
 
  
@@ -77,8 +77,8 @@ def train(opt):
         number = int(number)
         model = Resnet(number).to(device)
         model._initialize_weights()
-        cpu_model = Resnet(number).to(torch.device('cpu'))
-        cpu_model._initialize_weights()
+        # cpu_model = Resnet(number).to(torch.device('cpu'))
+        # cpu_model._initialize_weights()
     # elif model_name == 'vgg16':
     #   ...
 
@@ -98,7 +98,7 @@ def train(opt):
     trainset = ImageFolder(root="../people_data/train", transform=data_transform)
     testset = ImageFolder(root="../people_data/test", transform=data_transform)
     trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=2)
-    testloader = DataLoader(testset, batch_size=batch_size, shuffle=True, num_workers=2)
+    testloader = DataLoader(testset, batch_size=1, shuffle=True, num_workers=2)
     # print(trainset.classes) [female, male]
     # print(trainset.class_to_idx) female:0, male:1
     trainloader_length = len(trainloader)
@@ -123,6 +123,7 @@ def train(opt):
             print(' '*len(msg), end='')
             print(msg, end='')
             time.sleep(0.1)
+
             x_batch, y_batch = x_batch.to(device), y_batch.to(device)
             # pytorch에서는 gradients들을 추후에 backward를 해줄때 계속 더해주기 때문에 우리는 항상 backpropagation을 하기전에 gradients를 zero로 만들어주고 시작을 해야합니다.
             optimizer.zero_grad()
@@ -138,7 +139,7 @@ def train(opt):
             # y_batch = y_batch.type(torch.FloatTensor)
             loss = nn.CrossEntropyLoss()
             # loss = nn.BCELoss()
-            loss_output = (loss(pred, y_batch))
+            loss_output = loss(pred, y_batch)
             # loss = F.binary_cross_entropy(pred, y_batch) 
             # loss = nn.cross_entropy(pred, y_batch) 
             # gradient calculation
@@ -150,15 +151,13 @@ def train(opt):
             # print(prediction)
             acc = accuracy(prediction, y_batch)
             train_acc += acc
-            train_loss += loss_output
+            train_loss += loss_output.item()
             # print(loss.item())
             
         
         # evaluate after 1 epoch training
-        # print("evaluate")
         torch.cuda.empty_cache()
-        # test_loss, test_acc = evaluate(model, testloader, device)
-        test_loss, test_acc = evaluate(cpu_model, testloader)
+        test_loss, test_acc = evaluate(model, testloader, device)
         train_acc = train_acc / len(trainloader)
         train_loss = train_loss / len(trainloader)
         lr_scheduler.step(test_loss)
@@ -166,10 +165,10 @@ def train(opt):
         writer.add_scalars('Accuracy', {'trainacc':train_acc, 'testacc':test_acc}, epoch)
 
         # Metrics calculation
-        print("Epoch: %d, loss: %.8f, Train accuracy: %.8f, Test accuracy: %.8f, Test loss: %.8f, lr: %5f" % (epoch+1, train_loss, train_acc, test_acc, test_loss, optimizer.param_groups[0]['lr']))
+        print("\nEpoch: %d, loss: %.8f, Train accuracy: %.8f, Test accuracy: %.8f, Test loss: %.8f, lr: %5f" % (epoch+1, train_loss, train_acc, test_acc, test_loss, optimizer.param_groups[0]['lr']))
     finish = time.time()
     print("---------training finish---------")
-    print("Total time: %d(sec), Total Epoch: %d, loss: %.5f, Train accuracy: %.5f, Test accuracy: %.5f, Test loss: %.5f" % (finish-start, num_epochs, train_loss, train_acc, test_acc, test_loss))
+    print("\nTotal time: %d(sec), Total Epoch: %d, loss: %.5f, Train accuracy: %.5f, Test accuracy: %.5f, Test loss: %.5f" % (finish-start, num_epochs, train_loss, train_acc, test_acc, test_loss))
 
 
 if __name__ == "__main__":
