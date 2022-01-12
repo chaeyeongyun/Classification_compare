@@ -50,6 +50,7 @@ class BottleNeck(nn.Module):
             nn.ReLU(),
             nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=False),
             nn.BatchNorm2d(out_channels),
+            nn.ReLU(),
             nn.Conv2d(out_channels, out_channels*BottleNeck.expansion, kernel_size=1, stride=1, bias=False),
             nn.BatchNorm2d(out_channels*BottleNeck.expansion)
         )
@@ -62,12 +63,14 @@ class BottleNeck(nn.Module):
             )
         else:
             self.shortcut = nn.Sequential()
+            
         self.relu = nn.ReLU()
     
     def forward(self, x):
         x = self.conv_layers(x) + self.shortcut(x)
         x = self.relu(x)
         return x
+        
 
 class Resnet(nn.Module):
     '''
@@ -149,6 +152,6 @@ if __name__ == "__main__":
 #     # # resnet = Resnet(152)
     x = torch.zeros((1, 3, 224, 224))
     
-    
+    print(resnet)
     pred = resnet(x)
     print(pred)
