@@ -110,7 +110,9 @@ class Resnet(nn.Module):
         self.conv5_x = self._make_layers(block_class, num_blocks[3], 2, 512)
         self.average_pool = nn.AdaptiveAvgPool2d((1,1)) # N, C, 1, 1
         self.fc_layer = nn.Linear(512*block_class.expansion, num_classes)
-    
+
+        if init_weights:
+            self._initialize_weights()
     def _make_layers(self, block_class, num_blocks, stride, out_channels):
         strides = [stride] + [1] * (num_blocks - 1)
         layers = []
@@ -142,6 +144,10 @@ class Resnet(nn.Module):
             elif isinstance(m, nn.Linear):
                 nn.init.normal_(m.weight, 0, 0.01) # Fills the given 2-dimensional matrix with values drawn from a normal distribution parameterized by mean and std.
                 nn.init.constant_(m.bias, 0)
+
+
+
+
 
 
 if __name__ == "__main__":
