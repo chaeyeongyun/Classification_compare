@@ -132,6 +132,9 @@ class Resnet(nn.Module):
         output = self.fc_layer(output)
         return output
     
+    def get_activations_gradient(self):
+        return self.gradients
+    
     def _initialize_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Conv2d): 
