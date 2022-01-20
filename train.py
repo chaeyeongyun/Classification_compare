@@ -53,31 +53,36 @@ def train(opt):
     if model_name == 'resnet':
         number = input("the number of resnet layers(18, 34, 50, 101, 152): ")
         number = int(number)
-        model = Resnet(number).to(device)
+        model = Resnet(number)
+        data_transform = transforms.Compose([
+        transforms.ToTensor(), # normalize는 PIL이미지 형태가 아닌 Tensor형태에서 수행되어야하므로 앞에 이 줄을 꼭 넣어줘야함
+        transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                              std=[0.229, 0.224, 0.225])
+        ])
         
     elif model_name == 'vgg':
         number = input("the number of vgg layers(11, 13, 16, 19): ")
         number = int(number)
-        model = VGG(number).to(device)
-        
-
-    # elif model_name == 'inception':
-    #   ...
-
+        model = VGG(number)
+        data_transform = transforms.Compose([
+        transforms.Resize((224, 224)),
+        transforms.ToTensor(), # normalize는 PIL이미지 형태가 아닌 Tensor형태에서 수행되어야하므로 앞에 이 줄을 꼭 넣어줘야함
+        transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                              std=[0.229, 0.224, 0.225])
+        ])
     else: 
         print("it's not appropriate name")
         sys.exit(0)
+
+   
     if load_model is not None:
         model.load_state_dict(torch.load(load_model))
 
     # resize 할까말까 고민함 근데? 어차피 마지막에 averagepooling하니까 안해도 된다고 판단
-    data_transform = transforms.Compose([
-        transforms.ToTensor(), # normalize는 PIL이미지 형태가 아닌 Tensor형태에서 수행되어야하므로 앞에 이 줄을 꼭 넣어줘야함
-        transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                              std=[0.229, 0.224, 0.225])
-     ])
+    
     trainset = ImageFolder(root=dataset_path+"/train", transform=data_transform)
-    testset = ImageFolder(root=dataset_path+"/test", transform=data_transform)
+    # testset = ImageFolder(root=dataset_path+"/test", transform=data_transform)
+    testset = ImageFolder(root=dataset_path+"/val", transform=data_transform)
     trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=2)
     testloader = DataLoader(testset, batch_size=1, shuffle=False, num_workers=2)
     # print(trainset.classes) [female, male]
@@ -159,10 +164,10 @@ def train(opt):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--num_epochs', type=int, default=25, help='the number of epochs')
+    parser.add_argument('--num_epochs', type=int, default=50, help='the number of epochs')
     parser.add_argument('--batch_size', type=int, default=8, help='batch size')
-    parser.add_argument('--model_name', type=str, default='vgg', help='the name of model - resnet or vgg16 or inception')
-    parser.add_argument('--dataset_path', type=str, default='../people_data', help='dataset directory path')
+    parser.add_argument('--model_name', type=str, default='resnet', help='the name of model - resnet or vgg16')
+    parser.add_argument('--dataset_path', type=str, default='../data_1', help='dataset directory path')
     parser.add_argument('--start_epoch', type=int, default=0, help='the start number of epochs')
     parser.add_argument('--load_model',default=None, type=str, help='the name of saved model file (.pt)')
     parser.add_argument('--save_txt', type=bool, default=True, help='if it''s true, the result of trainig will be saved as txt file.')

@@ -21,7 +21,7 @@ class VGG(nn.Module):
         else: 
             print("unavailable number of layers")
             sys.exit()
-        
+
         self.conv_layers = self._make_layers(self.vgg_cfg)
         # fc layers part : adaptiveaveragepooling->FC->ReLU->Dropout->FC->ReLU->Dropout->FC (-> softmax)
         self.adaptive_avgpooling = nn.AdaptiveAvgPool2d(7)
@@ -34,6 +34,9 @@ class VGG(nn.Module):
             nn.Dropout(),
             nn.Linear(4096, num_classes)
         )
+
+        # placeholder for the gradients
+        self.gradients = None
 
         if init_weights:
             self._initialize_weights()
@@ -53,11 +56,23 @@ class VGG(nn.Module):
     
     def forward(self, x):
         output = self.conv_layers(x)
+        
+        h = x.register_hook(self.activations_hook)
+        
         output = self.adaptive_avgpooling(output)
         output = output.view(-1, 512*7*7)        
         output = self.fc_layers(output)
         return output
     
+    def activations_hook(self, grad):
+        self.gradients = grad
+
+    def get_activations_gradient(self):
+        return self.gradients
+    
+    def get_activations(self, x):
+        return self.conv_layers(x)
+
     def _initialize_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Conv2d): 
@@ -70,6 +85,7 @@ class VGG(nn.Module):
             elif isinstance(m, nn.Linear):
                 nn.init.normal_(m.weight, 0, 0.01) # Fills the given 2-dimensional matrix with values drawn from a normal distribution parameterized by mean and std.
                 nn.init.constant_(m.bias, 0)
+
 
 if __name__ == "__main__":
     vgg = VGG(16)
