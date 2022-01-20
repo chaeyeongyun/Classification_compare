@@ -53,7 +53,7 @@ def train(opt):
     if model_name == 'resnet':
         number = input("the number of resnet layers(18, 34, 50, 101, 152): ")
         number = int(number)
-        model = Resnet(number).to(device)
+        model = Resnet(number)
         data_transform = transforms.Compose([
         transforms.ToTensor(), # normalize는 PIL이미지 형태가 아닌 Tensor형태에서 수행되어야하므로 앞에 이 줄을 꼭 넣어줘야함
         transforms.Normalize(mean=[0.485, 0.456, 0.406],
@@ -63,20 +63,18 @@ def train(opt):
     elif model_name == 'vgg':
         number = input("the number of vgg layers(11, 13, 16, 19): ")
         number = int(number)
-        model = VGG(number).to(device)
+        model = VGG(number)
         data_transform = transforms.Compose([
         transforms.Resize((224, 224)),
         transforms.ToTensor(), # normalize는 PIL이미지 형태가 아닌 Tensor형태에서 수행되어야하므로 앞에 이 줄을 꼭 넣어줘야함
         transforms.Normalize(mean=[0.485, 0.456, 0.406],
                               std=[0.229, 0.224, 0.225])
         ])
-
-    # elif model_name == 'inception':
-    #   ...
-
     else: 
         print("it's not appropriate name")
         sys.exit(0)
+
+   
     if load_model is not None:
         model.load_state_dict(torch.load(load_model))
 
