@@ -86,6 +86,7 @@ class VGG(nn.Module):
                 nn.init.normal_(m.weight, 0, 0.01) # Fills the given 2-dimensional matrix with values drawn from a normal distribution parameterized by mean and std.
                 nn.init.constant_(m.bias, 0)
 
+
 if __name__ == "__main__":
     vgg = VGG(16)
     x = torch.zeros((1, 3, 224, 224))
